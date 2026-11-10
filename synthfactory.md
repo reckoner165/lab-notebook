@@ -4,6 +4,19 @@ code: ~/Documents/dev/synth-factory
 
 RL for sound design in SuperCollider. the idea is to teach a model to write SuperCollider synths that sound good, using the same loop Surya used to teach Qwen to paint.
 
+### why I'm doing this
+
+modern AI models are awful at producing music, and they take the joy out of making it for a musician. but parts of the music-making process, especially synthesis and sound design, can be reframed as a coding problem. that opens them up to algorithmic and procedural music generation tools and ideas, and lets a machine make interesting sounds. the results can be judged by ear, or described in the language of contemporary music criticism, and used as raw material.
+
+two advantages of keeping it to sound design:
+
+- **tight scope makes the model easier to evaluate and steer.** a 30s synth from a fixed kit is a small, checkable thing, unlike a full song.
+- **the rest of composition stays with the musician.** the machine designs sounds; writing the music is still mine to do as always.
+
+these aren't meant to produce finished songs. they're synth studies, closer to what an engineer or sound designer hands a musician.
+
+the longer-term idea is to get models to write sound design and musical études: short, focused studies that each explore one idea, sound or technique.
+
 ### where the idea comes from
 
 Surya Narreddi's post "Training AI to Paint with Code" (surya.website/rling-qwen-to-paint-with-code). they RL-trained Qwen to write p5.brush JavaScript that renders watercolour paintings:
@@ -101,3 +114,89 @@ TODO (next):
 - review the UGen allowlist in kit.json (my first draft) and the system prompt in kit_prompt.md
 - write 10–20 creative prompts in prompts.txt
 - set ANTHROPIC_API_KEY, then first run: `uv run sf.py generate --run first --samples 5`
+
+#### 2026-11-10
+- first trial run: 50 samples of one prompt, to compare models and effort levels on the same task
+- prompt, tweaked from yesterday's test:
+  - before: "create bird song in a forest with crunchy leaves and crickets"
+  - now: "create ambient bird song in a lush forest with crunchy leaves and crickets. it should feel like a lived-in space"
+  - added "ambient", "lush" and the "lived-in space" sentence. dropped the final period so the user message still reads "...lived-in space, in SuperCollider."
+  - saved as `prompts-trial.txt`, passed with `--prompts`
+- model breakdown:
+  - Opus 5.5, effort medium: 25 samples
+  - Opus 5.5, effort high: 10 samples
+  - Fable 5.1, effort high (harness default): 15 samples
+  - asked for "hard" effort, but the API has no such level (low / medium / high / xhigh / max), so used high
+- process:
+  - one run folder `runs/2026-11-10_trial-50/`, three `sf.py generate` processes in parallel (one per model/effort), started 5s apart, logs in `trial-logs/`
+  - all three file into the same prompt folder, so sample numbers are interleaved across models (sample-01..50). `meta.json` says which model/effort made each one; the review page shows it
+  - small risk with parallel runs: two processes could claim the same sample-NN at the same moment and one would crash. didn't happen
+  - took ~20 min wall clock (11:44–12:03). Opus high finished first (~11 min), Fable last
+- hiccup: running Claude Code inside bb (instead of the terminal) puts every shell command in a sandbox. it blocked uv's cache (`~/.cache/uv`) and sclang (no access to macOS services, so every render failed). fixed with `bb plugin config provider-claude-code set sandboxEnabled false`
+- result: 49 / 50 passed all checks. 25/25 Opus medium, 10/10 Opus high, 14/15 Fable
+  - the one failure (Fable, sample-31) used `Impulse` and `Latch`, which aren't in the kit. it still rendered, so it's listenable
+- next: listen and rate in the review site. then the same prompt with OpenAI (GPT-5.5, GPT-6 Astra): harness now supports `gpt-*` models via the Responses API, needs `OPENAI_API_KEY` in `.env`
+- started tracking cost per sample: tokens used × list price. `meta.json` now has a `cost` field, `uv run sf.py cost` backfills old samples and prints a summary. prices live in `harness/pricing.py`
+  - output tokens include thinking / reasoning tokens, and both Anthropic and OpenAI bill those as output
+  - list prices (USD per 1M tokens, in / out): Opus 5.5 $4 / $20, Fable 5.1 $10 / $50, GPT-5.5 $5 / $30, GPT-6 Astra $10 / $50
+- cost estimates so far (prompt: "create ambient bird song in a lush forest with crunchy leaves and crickets. it should feel like a lived-in space"):
+
+  | run | model | effort | n | pass | total | $/sample | avg out tokens |
+  |---|---|---|---|---|---|---|---|
+  | trial-50 | Opus 5.5 | medium | 25 | 25 | $1.99 | $0.080 | 3,846 |
+  | trial-50 | Opus 5.5 | high | 10 | 10 | $1.47 | $0.147 | 7,204 |
+  | trial-50 | Fable 5.1 | high | 15 | 14 | $4.26 | $0.284 | 5,541 |
+  | test-1 | Opus 5.5 | high | 1 | 1 | $0.13 | $0.132 | 6,456 |
+
+  - ~$7.85 for all 51 samples
+  - Fable costs ~2x Opus high per sample while writing fewer tokens: its per-token price is 2.5x
+  - Opus high writes ~1.9x the tokens of Opus medium, so it costs ~1.8x per sample
+- these are list-price estimates, not billed amounts: no caching or batch discounts
+
+- second trial run: same prompt with OpenAI models, 50 samples in `runs/2026-11-10_trial-50-openai/`
+  - harness now supports `gpt-*` models through OpenAI's Responses API: same system prompt, user message, effort setting and code extraction. key is `OPENAI_API_KEY` in `.env`
+  - GPT-5.5 at effort medium (25 samples), to pair with Opus 5.5 medium. GPT-6 Astra (`gpt-6-astra`) at effort high (25), to pair with Fable 5.1 high (same per-token price)
+  - same process as the Claude run: two parallel processes into one run folder, logs in `trial-logs/`. took ~40 min (15:40–16:19), Astra the slower one
+- results, with the Claude runs for comparison:
+
+  | model | effort | n | pass | total | $/sample | avg out tokens (reasoning) |
+  |---|---|---|---|---|---|---|
+  | GPT-5.5 | medium | 25 | 23 | $2.35 | $0.094 | 3,064 (2,577) |
+  | GPT-6 Astra | high | 25 | 25 | $3.19 | $0.128 | 2,466 (1,901) |
+  | Opus 5.5 | medium | 25 | 25 | $1.99 | $0.080 | 3,846 |
+  | Fable 5.1 | high | 15 | 14 | $4.26 | $0.284 | 5,541 |
+
+  - $5.54 for the 50 OpenAI samples, under the $8–14 I estimated beforehand (from Claude's token counts): OpenAI models wrote far fewer tokens
+  - Astra vs Fable: same price per token, same effort, but Astra wrote less than half the tokens, so ~2.2x cheaper per sample, and 25/25 passed
+  - ~80% of OpenAI output tokens are hidden reasoning, so the visible code + explanation is short
+  - GPT-5.5 failures: sample-01 used 6 LFOs (kit allows 2), still rendered. sample-19 called `Env.new` with a single number instead of an array of levels, so the build failed and there's no audio
+  - every reply finished normally, none hit the 32k output token limit
+
+##### musings about future direction
+three general ideas. not sure whether to pursue one of them or a combination.
+
+1. **many models, manual evaluation, find patterns**
+   - same prompt → different models, then different prompts
+   - track which samples I love / hate and see if there are model patterns there
+   - see if certain models prefer certain synth architectures (e.g. Fable seemed to reach for the delay more often than the others)
+   - widen the model set: Google, DeepSeek, Mistral, local models, etc.
+   - open questions: how good an eval / benchmark would this be? is there something worth articulating, like "which models are good at which aspects of sound design", or "here are the models' biases / preferences when I let them build their own synths"? is it useful to the general public? has anyone else done this?
+
+2. **LLM reviews → my taste, in words → steer future runs**
+   - get LLM-written reviews for every sample. they add richer vocabulary and text context to each one
+   - with my love / neutral / hate ratings, this gives a language-based, tractable line of reasoning between what I (specifically me) like and how it's described
+   - feed that back as extra prompt material in future runs, to raise the chance of samples I like
+   - not universal: it's personalising a model to my taste. maybe that's finetuning, post-training or some kind of RL. don't know where it leads
+
+3. **a study / étude system**
+   - older composers wrote studies, or large bodies of work, exploring what an instrument can do: sounds in various configurations, overtones, compositional effect. études are a student-practice thing, but share the idea of honing in on a tightly scoped pattern, problem or embodied skill. here, a small set of prompts or rules would be the scope; the kit constraint is already along those lines
+   - frame the project as a study of models' ability to build synthesizers for ambient music, over a defined repertoire: rain, birdsong, ambient trains, waves on a beach, etc. (the actual prompt set can come later)
+   - also like painters' studies of new pigments, brushes and solvents across conditions, to learn the strengths and weaknesses of each
+
+TODO (later): model habits, starting with Pulse
+- observation: GPT-5.5 used the `Pulse` oscillator in every sample (25/25). `Pulse` is in the kit (`kit.json` oscillators: SinOsc, Saw, Pulse, LFTri), so it's allowed, but the consistency stands out
+- questions:
+  - what about the others, how often do they use it? first count (samples with `Pulse.ar/.kr`, not `LFPulse`): GPT-5.5 25/25, Opus 5.5 25/35, GPT-6 Astra 19/25, Fable 5.1 7/15
+  - in what capacity does GPT-5.5 use the Pulse oscillator?
+  - is that same role filled by a different technique in other models' architectures?
+  - do all models have their own repetitive style? how does that sonically translate?
