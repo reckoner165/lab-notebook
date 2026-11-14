@@ -200,3 +200,101 @@ TODO (later): model habits, starting with Pulse
   - in what capacity does GPT-5.5 use the Pulse oscillator?
   - is that same role filled by a different technique in other models' architectures?
   - do all models have their own repetitive style? how does that sonically translate?
+
+##### architecture patterns: first pass (not on the review site yet, so listening stays about the sound alone)
+from the compiled UGen lists (`checks.json`) and the code (`synth.scd`) of the 100 trial samples. one prompt only, so these are habits on this prompt, not general traits. Opus medium + high combined (35), Fable 15, GPT-5.5 25 (24 built), Astra 25.
+
+1. **everyone fills the whole kit, and the skeleton is the same.** 98 / 99 built samples use every part at its max (2 osc, 2 filters, noise, env, 2 LFOs, delay). every sample has a sine-oscillator bird (`SinOsc.ar`) and `.tanh` soft-clipping at the end. so the delay isn't a Fable habit after all: every model uses one in nearly every sample. models differ in which parts they pick, not how many
+2. **crickets are made two different ways, and that's where Pulse comes in.** all four models use `Pulse` for the crickets, but in different roles:
+   - OpenAI (GPT-5.5 25/25, Astra 19/25): Pulse *is* the cricket. a narrow square wave at ~4–5.7 kHz, e.g. `Pulse.ar(4600 + (drift * 220), 0.18)`. likely sound: a pitched, buzzy tone
+   - Claude (Opus 25/35, Fable 7/15): Pulse at ~30 Hz is a *trill gate* chopping a band of filtered noise, e.g. `trill = Pulse.ar(31, 0.35)` on `BPF.ar(noise, 4700, ...)`. likely sound: a breathy, shimmering chirp
+   - so the same kit part plays a different role, and the "missing" Pulse in other samples is mostly the same gate done with `LFPulse`
+3. **noise colour splits by company.** Opus: white noise 34/35. OpenAI: pink noise (GPT-5.5 20/24 plus 3 brown, Astra 24/25). Fable in between: 8 white / 7 pink. pink / brown is darker and softer; white is brighter, more hiss for leaves and crickets
+4. **Opus has a template.** almost every Opus sample has the same five parts: `BPF` (35/35), white noise (34/35), `CombL` delay (35/35), sine bird, and an `LFSaw` LFO (34/35) that sweeps the bird into a repeating downward chirp. `LFSaw` is nearly Opus-only (Astra 9/25, GPT-5.5 and Fable 0). expect Opus birds to sound alike from sample to sample
+5. **delay flavour and code style.**
+   - GPT-5.5 is the only one that prefers the allpass delay (`AllpassL` 15/24, smears / diffuses); everyone else uses the comb delay (`CombL`, audible echo / ringing): Opus 35/35, Fable 15/15, Astra 24/25
+   - GPT-5.5 writes no comments at all (avg 0 per sample); Opus and Fable ~9–11; Astra ~4. Astra writes the longest code (~37 lines vs 20–24 for the rest)
+
+caveats: counts say which parts are *present*, not their role. only Pulse was checked by reading the code. "likely sound" lines are guesses from the code, to be checked by ear after rating.
+
+#### 2026-11-12
+##### new idea: personas (2am thoughts)
+- prompted by [this tweet](https://x.com/jkeatn/status/2119874007382299087): someone painting in code with Fable 5.2 had Claude invent *personas*, artists with a back story and a consistent style roughly placed in time. this was a response to the critique that Opus 5.5's paintings only emulated real art. over weeks they gave comments and steers, Claude revised the brush / paint engines, and went deeper on paintings they liked. each painting is a 1–2k line Python program placing every stroke through a simulated paint engine. no image model, no rendering or tracing in advance
+- second persona tweet to read alongside the first: [@aliceisplaying](https://x.com/aliceisplaying/status/2120519664711385185)
+- same critique applies here: "bird song in a forest" asks for a sound effect, and gets a sign that says "bird". a persona changes the question from "what does a forest sound like?" to "what does *this composer* make of a forest?"
+- a persona is like an expansion of the kit: the kit limits the materials (the pigments and brushes), the persona limits the choices (the hand). in the tweet the engines grew per persona, so each persona ended up with its own kit
+- but a persona can still work with a fixed kit. real musicians work with limited gear all the time, and that's often where a voice shows most
+- ways to try it, smallest first:
+  1. persona on the shared kit: does a voice change the sound when the materials are the same? same harness and checks, only the prompt changes
+  2. persona with its own kit variation (e.g. no noise but 3 LFOs)
+  3. a persona that changes its own kit over time with my steers ("studio" mode, like the tweet). not comparable across models, and that's fine
+- two ways of working, keep them separate: *lab* = one-shot, controlled, comparable samples (what I have now). *studio* = one agent, iterating with me over weeks
+- open bits: the agent can't hear its own work, so my ears are the feedback loop (spectrogram / measurements as a rough self-check). a persona might want longer forms than 30s. fits the étude idea: a persona's body of studies
+- Fable 5.2 isn't in the harness yet: check the model ID before using it
+
+##### blog post ideas
+- central question candidate: **when a model makes sound under constraints, is the result an aesthetic, or just engineering? and does the difference matter if it sounds good?**
+- framing: models may not be artists, but they're probably good sound engineers. like a studio with a "house sound": the kit is the gear, the model's habits are the house band + engineer, the prompt is the artist walking in
+- the "sound" of studios often came from practical engineering decisions, not taste:
+  - **Motown:** mixes checked on small car-radio-like speakers, a cramped basement room, an improvised echo chamber, few tracks to record on, tambourine and claps loud enough to cut through AM radio. practical fixes that together became "the Motown sound"
+  - **Ilaiyaraaja:** often wrote for tea stalls playing AM radio through narrow-band mono loudspeakers. that directly shaped his composition and arrangement
+- my harness has the same kind of constraints: mono, exactly 30s, peaks below 1.0, a fixed kit, no reverb. my AM radio and track count
+- fits my listening notes already: remarks like "good texture", "too synthetic but still sounds good" are exactly the aesthetic-vs-engineering line
+- other "house sound" parallels to maybe use: Stax vs Motown (same era and genre, different studios), Sun Studio's slapback, Rudy Van Gelder / Blue Note, King Tubby (the desk as instrument), BBC Radiophonic Workshop (sound design to a brief with limited tools), Steve Albini (engineer, not producer: tried *not* to impose a sound)
+- possible test while listening: can I guess which model made a sample before looking?
+- sets up the persona post: if the default sound comes from constraints and habits, a persona is the first deliberate attempt at taste
+- structure (rough): setup and process → what I heard + ratings → architecture patterns (after listening) → my taste vs token / cost → what this says about models and about me
+- follow-up question: **if we create a meaningful enough constraint on what the model is allowed to use, will that lead to creative decisions?** (H1)
+  - *meaningful* = it removes the obvious solution. arbitrary limits ("only 3 parts") might just give smaller versions of the default answer. e.g. "crunchy leaves" with no noise source: the crunch has to be invented from oscillators + modulation
+  - parallels: Oulipo (Perec's novel without the letter "e"), Eno's Oblique Strategies, Dogme 95. block the default and something new has to happen
+- alternative hypothesis: **taste isn't stored in a single tool but in their composability** (H2)
+  - musicians support this: the same Stratocaster or 808 sounds completely different depending on who uses it. the tool is shared, the taste is in how it's used and combined
+- they may fit together: take tools away and the only place left for choices is the wiring (what modulates what, what feeds what). H1 could be the mechanism, H2 the explanation
+- title / line candidate: **"deaf machines making sounds"**
+  - the models can't hear what they make. a deaf engineer can only make engineering decisions: what usually works, what the code is meant to do
+  - so any aesthetic that comes out is either inherited (absorbed from everything written *about* sound), a function of the tools (the kit and constraints), or accidental
+  - the model acts on its intentions, not on results. seen on day one: the code comments describe what the model meant, not what came out
+- post arc: question (aesthetic or engineering?) → hypothesis (where does taste live?) → experiment
+
+TODO (next)
+- **first: finish listening to and rating the current 100 samples (trial-50 + trial-50-openai). everything below waits on this**
+- then: look at the architecture patterns (2026-11-10 entry) next to my ratings and taste notes, and per-model love rate vs token use / cost
+- test H2 (composability): do the samples I love share *parts* or share *wiring*? data already exists in each sample's `graph.json`
+- test H1 (meaningful constraint): small run on the same prompt with one constraint that removes the obvious solution (e.g. no noise source), compared with the normal kit. listen: more surprising, or just broken?
+- later: Pulse habits TODO (2026-11-10), persona mini-project (2026-11-12)
+- reading: literature review below, in priority order. read #1 only after rating (it has per-model results). not all of it needs reading
+- search the music-tech conferences properly (NIME, ICMC, DAFx, ISMIR) for anything closer
+
+##### literature review
+in priority order: closest to my question and method first. found with three web searches, not a full review.
+
+1. **[The Goldborg Variations: algorave attractor states of LLMs](https://www.lesswrong.com/posts/DWtMPR8797aEDYXei/the-goldborg-variations-algorave-attractor-states-of-llms)** (LessWrong)
+   - several frontier models get the same Strudel seed (a Goldberg Variations bass line) and repeatedly "evolve" it. each drifts toward its own default style, its "attractor state". an LLM judge classifies the final pieces
+   - overlap: almost exactly my "do models have a sound?" question, in live coding instead of synthesis. differs: no fixed kit, a judge model instead of a human ear, evolving one piece instead of one-shot samples
+   - ⚠ has per-model results: read after rating
+2. **[Benchmarking LLM Code Generation for Audio Programming with Visual Dataflow Languages](https://arxiv.org/pdf/2409.00856)** (2024)
+   - 10 tasks (5 specific techniques: FM, AM, LFO, filtered noise…; 5 open-ended scenes: church bell, babbling brook…), 600 samples, judged by ear plus code correctness / complexity
+   - overlap: closest *method*: models writing audio code, judged by listening. their technique-vs-scene split could shape my étude repertoire. differs: visual languages, not text code; no fixed kit; no taste or cost angle
+3. **[AutoSynth: Learning to Generate Editable Synthesizer Programs from Audio and Text](https://arxiv.org/html/2610.10774v1)** (2026)
+   - predicts editable synth programs (notes, synth parameters, modulation routes) from audio or text. supervised learning + GRPO reinforcement learning
+   - overlap: the RL / post-training direction in my notes (Surya-style loop), and "editable program" = my synth-as-code. differs: trains its own model; aims at matching a target, not taste
+4. **[A Text-Steerable Instrument for Sketching Procedural Soundscapes via Language Models](https://arxiv.org/pdf/2607.00309)** (2026)
+   - an LLM generates layered soundscape settings ahead of time; they're retrieved at runtime from text
+   - overlap: ambient / procedural soundscapes, like my repertoire idea (rain, birdsong, trains, waves). differs: LLM fills in settings for a fixed engine, doesn't write the synth
+5. **[CTAG: Creative Text-to-Audio Generation via Synthesizer Programming](https://www-prod.media.mit.edu/publications/ctag-neurips/)** (MIT Media Lab)
+   - repeatedly adjusts a 78-parameter modular synth until an audio-language model judges it a good match for a text prompt
+   - overlap: text → synth, and an automatic audio-language judge (like the CLAP idea in my notes). differs: optimisation turning knobs, not a model writing code; scored by a judge, not a person
+6. **[TidalCycles autonomous agent paper](https://core.ac.uk/download/477975526.pdf)** + **[Live Coder in the Loop](https://zenodo.org/records/17306276)** (2025 performance proposal)
+   - an agent that makes TidalCycles patterns and develops a sense of value for them; a human live coder accepts or rejects its suggestions
+   - overlap: the *studio* / persona mode: an agent with its own sense of value, steered by a human. differs: live performance, patterns not synth design
+7. **[SonicRAG: high-fidelity sound effects synthesis based on retrieval-augmented generation](https://arxiv.org/pdf/2505.03244)**
+   - notes LLMs often write complex audio scripts that fail to run, and proposes a higher-level language for sound effects
+   - overlap: the reliability side: my compile / build checks and failure rates. differs: sound effects, not études; adds its own language layer
+8. **Synth sound matching** (infer synth settings from audio): [Audio Spectrogram Transformers, Native Instruments](https://arxiv.org/pdf/2407.16643) ([DAFx](https://www.dafx.de/paper-archive/2024/papers/DAFx24_paper_95.pdf)), [flow matching](https://arxiv.org/pdf/2506.07199), [FM synth audio-parameter embeddings](https://arxiv.org/pdf/2608.18226)
+   - overlap: links synth settings to sound, the reverse of my direction; possibly useful later for predicting sound from code (the JEPA-ish idea). low priority
+9. **Tools** (not studies): [claude-collider](https://github.com/jeremyruppel/claude-collider), [SuperColliderMCP](https://github.com/Tok/SuperColliderMCP), [strudel-tui](https://awesome.ecosyste.ms/projects/github.com%2Fthedavidweng%2Fstrudel-tui)
+   - overlap: an LLM driving SuperCollider / Strudel live. possible infrastructure for persona / studio mode, not evidence for my question
+10. **Informal:** ["Can Claude compose?" blog](https://blog-5e2.pages.dev/ll-ms-as-music-synthesizers-can-claude-compose), [notes on generating synth patches with AI (gist)](https://gist.github.com/0xdevalias/5a06349b376d01b2a76ad27a86b08c1b)
+    - overlap: anecdotes, one person's impressions. background only
+
+where my project stands out (as far as these searches show): models write the synth as code; a fixed kit across models; many frontier models on the same brief, with cost; one musician's taste as the measure, framed as "aesthetic or engineering?". the closest work does one or two of these, not all
